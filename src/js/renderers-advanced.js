@@ -17,19 +17,41 @@
   // HELPERS
   // ═══════════════════════════════════════════════════════════
 
-  function dd(it)  { return window.getDD  ? window.getDD(it)  : { dW: it.is_long ? it.L : it.W, dH: it.is_long ? it.W : it.L }; }
-  function sh(it)  { return window.stackH ? window.stackH(it) : it.H * Math.min(it.stack, Math.ceil(it.bundles / (it.floor_pos || 1))); }
+  function dd(it)  { return window.getDD  ? window.getDD(it)  : { dW: it.is_long ? it.L : it.W, dH: it.is_long ? it.W : it.L, cols:1, rows:1, effStack:Math.min(it.stack||1,Math.ceil((it.bundles||1)/(it.floor_pos||1))) }; }
+  function sh(it)  { return window.stackH ? window.stackH(it) : it.H * Math.min(it.stack||1, Math.ceil((it.bundles||1) / (it.floor_pos || 1))); }
+
+  // Returns CSS hex color string for an item, matching 2D palette
   function zColor(it, idx) {
-    const PALETTE = ['#3b82f6','#06b6d4','#8b5cf6','#ec4899','#22c55e','#f59e0b','#ef4444','#6366f1','#0ea5e9','#10b981'];
-    return (window.zoneColorMap && window.zoneColorMap[it.id]) || PALETTE[idx % PALETTE.length];
+    const FALLBACK = ['#3b82f6','#06b6d4','#8b5cf6','#ec4899','#22c55e','#f59e0b','#ef4444','#6366f1','#0ea5e9','#10b981'];
+    const pal = window.ZONE_PALETTE;
+    if (pal && window.zoneColorMap && (it.id in window.zoneColorMap)) {
+      const zi = window.zoneColorMap[it.id];
+      return (pal[zi] && pal[zi][0]) || FALLBACK[idx % FALLBACK.length];
+    }
+    return FALLBACK[idx % FALLBACK.length];
   }
+
+  // Returns CSS hex color string slightly shaded darker by factor (0–1)
+  function shadeColor(css, factor) {
+    const hex = parseInt(css.replace('#',''), 16);
+    const r = Math.min(255, Math.round(((hex >> 16) & 0xff) * factor));
+    const g = Math.min(255, Math.round(((hex >> 8)  & 0xff) * factor));
+    const b = Math.min(255, Math.round((hex & 0xff)          * factor));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+  }
+
   function cssToHex(css) {
     return parseInt(css.replace('#', ''), 16);
   }
+
+  // Returns all placed items as an array, using global items array filtered by layout
   function allItems() {
     const ly = window.layout;
-    if (!ly) return [];
-    return (ly.lItems || []).concat(ly.rItems || []);
+    const its = window.items;
+    if (!ly || !its) return [];
+    const lSet = ly.leftItems  || new Set();
+    const rSet = ly.rightItems || new Set();
+    return its.filter(it => lSet.has(it.id) || rSet.has(it.id));
   }
 
   let currentTab = '2d';
@@ -77,19 +99,20 @@
     if (!K.stage || !window.layout || !window.pos) return;
     K.bg.destroyChildren(); K.items.destroyChildren(); K.annot.destroyChildren();
 
-    const ly = window.layout;
+    const ly  = window.layout;
     const pos = window.pos;
-    const PX = 30; // pixels per metre
-    const W = ly.W * PX, H = ly.H * PX;
+    const PX  = 30; // pixels per metre
+    const W   = ly.totalW * PX;
+    const H   = ly.totalH * PX;
 
     // ── Background ──────────────────────────────────────────
     K.bg.add(new Konva.Rect({ width: W, height: H, fill: '#f8fafc' }));
 
     // Grid
-    for (let x = 0; x <= Math.ceil(ly.W); x++) {
+    for (let x = 0; x <= Math.ceil(ly.totalW); x++) {
       K.bg.add(new Konva.Line({ points: [x*PX,0,x*PX,H], stroke: x%5===0?'#99aabb':'#d8e4f0', strokeWidth: x%5===0?0.7:0.3 }));
     }
-    for (let y = 0; y <= Math.ceil(ly.H); y++) {
+    for (let y = 0; y <= Math.ceil(ly.totalH); y++) {
       K.bg.add(new Konva.Line({ points: [0,y*PX,W,y*PX], stroke: y%5===0?'#99aabb':'#d8e4f0', strokeWidth: y%5===0?0.7:0.3 }));
     }
 
@@ -103,10 +126,10 @@
     K.bg.add(new Konva.Rect({ width: W, height: H, stroke: '#1e3a5f', strokeWidth: 2.5, fill: 'transparent', cornerRadius: 1 }));
 
     // Grid labels
-    for (let x = 0; x <= Math.ceil(ly.W); x += 5) {
+    for (let x = 0; x <= Math.ceil(ly.totalW); x += 5) {
       K.annot.add(new Konva.Text({ x: x*PX-9, y: H+4, text: x+'m', fontSize: 8, fill: '#94a3b8' }));
     }
-    for (let y = 0; y <= Math.ceil(ly.H); y += 5) {
+    for (let y = 0; y <= Math.ceil(ly.totalH); y += 5) {
       K.annot.add(new Konva.Text({ x: -22, y: y*PX-5, text: y+'m', fontSize: 8, fill: '#94a3b8' }));
     }
 
@@ -140,7 +163,7 @@
       grp.add(box);
 
       // Bundle grid lines
-      const { fp, cols, rows } = dd(it);
+      const { cols, rows } = dd(it);
       if (w > 22 && cols > 1) {
         for (let c = 1; c < cols; c++) {
           grp.add(new Konva.Line({ points: [c*w/cols,0,c*w/cols,h], stroke:'rgba(255,255,255,0.3)', strokeWidth:0.8, dash:[2,2] }));
@@ -235,8 +258,8 @@
     const W = wrap.clientWidth, H = wrap.clientHeight;
 
     T.scene = new THREE.Scene();
-    T.scene.background = new THREE.Color(0x0f1c33);
-    T.scene.fog = new THREE.FogExp2(0x0f1c33, 0.012);
+    T.scene.background = new THREE.Color(0x0d1b2e);
+    T.scene.fog = new THREE.FogExp2(0x0d1b2e, 0.010);
 
     T.camera = new THREE.PerspectiveCamera(42, W/H, 0.1, 800);
     T.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -247,31 +270,31 @@
     T.mount.appendChild(T.renderer.domElement);
 
     // Ambient fill
-    T.scene.add(new THREE.AmbientLight(0x6688aa, 0.55));
+    T.scene.add(new THREE.AmbientLight(0x7799cc, 0.60));
 
-    // Sun with shadows
-    const sun = new THREE.DirectionalLight(0xfff3d0, 1.1);
-    sun.position.set(35, 65, 25);
+    // Main sun from upper-right
+    const sun = new THREE.DirectionalLight(0xfff8e0, 1.2);
+    sun.position.set(40, 70, 30);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { near:1, far:200, left:-80, right:80, top:80, bottom:-80 });
+    Object.assign(sun.shadow.camera, { near:1, far:250, left:-100, right:100, top:100, bottom:-100 });
     T.scene.add(sun);
 
-    // Cool fill from opposite side
-    const fill = new THREE.DirectionalLight(0x4488ff, 0.35);
-    fill.position.set(-20, 25, -15);
-    T.scene.add(fill);
+    // Cool rim light from opposite
+    const rim = new THREE.DirectionalLight(0x4488ff, 0.30);
+    rim.position.set(-25, 20, -20);
+    T.scene.add(rim);
 
     // Floor plane
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(300, 300, 60, 60),
-      new THREE.MeshLambertMaterial({ color: 0x141e33 })
+      new THREE.PlaneGeometry(400, 400, 80, 80),
+      new THREE.MeshLambertMaterial({ color: 0x0e1a2e })
     );
     floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; floor.position.y = -0.02;
     T.scene.add(floor);
 
-    // Grid lines on floor
-    T.scene.add(new THREE.GridHelper(200, 40, 0x1e3050, 0x192840));
+    // Subtle grid
+    T.scene.add(new THREE.GridHelper(300, 60, 0x1a2d44, 0x152236));
 
     // ── Mouse orbit controls ──────────────────────────────────
     const el = T.renderer.domElement;
@@ -293,11 +316,17 @@
     });
     el.addEventListener('mouseup',    () => { T.drag = T.panDrag = false; });
     el.addEventListener('mouseleave', () => { T.drag = T.panDrag = false; });
-    el.addEventListener('wheel',      e  => { T.r = Math.max(4, Math.min(160, T.r + e.deltaY * 0.07)); refreshCamera(); }, { passive: true });
+    el.addEventListener('wheel',      e  => { T.r = Math.max(4, Math.min(180, T.r + e.deltaY * 0.07)); refreshCamera(); }, { passive: true });
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.style.cursor = 'grab';
-    el.addEventListener('mousedown', e => { if (e.button===0||e.button===2) el.style.cursor = 'grabbing'; });
+    el.addEventListener('mousedown', () => { el.style.cursor = 'grabbing'; });
     el.addEventListener('mouseup',   () => el.style.cursor = 'grab');
+
+    // Touch support
+    let _touchStart = null;
+    el.addEventListener('touchstart', e => { if (e.touches.length === 1) { _touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; T.drag = true; T.ds = _touchStart; } }, { passive: true });
+    el.addEventListener('touchmove',  e => { if (T.drag && e.touches.length === 1) { const t = e.touches[0]; T.theta += (t.clientX - T.ds.x) * 0.009; T.phi = Math.max(0.06, Math.min(1.52, T.phi - (t.clientY - T.ds.y) * 0.009)); T.ds = { x: t.clientX, y: t.clientY }; refreshCamera(); } }, { passive: true });
+    el.addEventListener('touchend',   () => { T.drag = false; });
 
     // ── Hint overlay ─────────────────────────────────────────
     const hint = document.createElement('div');
@@ -312,8 +341,8 @@
   function refreshCamera() {
     if (!T.camera) return;
     const ly = window.layout;
-    const cx = (ly ? ly.W/2 : 8) + T.panX;
-    const cz = (ly ? ly.H/2 : 8) + T.panZ;
+    const cx = (ly ? ly.totalW/2 : 8) + T.panX;
+    const cz = (ly ? ly.totalH/2 : 8) + T.panZ;
     T.camera.position.set(
       cx + T.r * Math.sin(T.phi) * Math.cos(T.theta),
       T.r * Math.cos(T.phi),
@@ -324,101 +353,187 @@
 
   function buildThreeScene() {
     if (!T.scene || !window.layout) return;
-    T.objs.forEach(o => T.scene.remove(o)); T.objs = [];
+    // Dispose old objects
+    T.objs.forEach(o => { T.scene.remove(o); });
+    T.objs = [];
 
-    const ly = window.layout, pos = window.pos;
+    const ly  = window.layout;
+    const pos = window.pos;
+    const W   = ly.totalW;
+    const H   = ly.totalH;
 
     // ── Warehouse slab ───────────────────────────────────────
     const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(ly.W, 0.18, ly.H),
-      new THREE.MeshLambertMaterial({ color: 0x1a2b48 })
+      new THREE.BoxGeometry(W, 0.18, H),
+      new THREE.MeshLambertMaterial({ color: 0x162032 })
     );
-    slab.position.set(ly.W/2, -0.09, ly.H/2); slab.receiveShadow = true;
+    slab.position.set(W/2, -0.09, H/2); slab.receiveShadow = true;
     add3(slab);
 
+    // ── Concrete floor texture lines ─────────────────────────
+    for (let xi = 0; xi <= Math.ceil(W); xi += 5) {
+      const line = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, 0.01, H),
+        new THREE.MeshLambertMaterial({ color: 0x1e3050, transparent: true, opacity: 0.6 })
+      );
+      line.position.set(xi, 0.002, H/2);
+      add3(line);
+    }
+    for (let zi = 0; zi <= Math.ceil(H); zi += 5) {
+      const line = new THREE.Mesh(
+        new THREE.BoxGeometry(W, 0.01, 0.04),
+        new THREE.MeshLambertMaterial({ color: 0x1e3050, transparent: true, opacity: 0.6 })
+      );
+      line.position.set(W/2, 0.002, zi);
+      add3(line);
+    }
+
     // ── Warehouse walls (translucent) ────────────────────────
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0x2a4070, transparent:true, opacity:0.28, side: THREE.DoubleSide });
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0x2a4070, transparent:true, opacity:0.22, side: THREE.DoubleSide });
     [
-      [ly.W/2,4,  0,       ly.W, 8, 0.25],
-      [ly.W/2,4,  ly.H,    ly.W, 8, 0.25],
-      [0,     4,  ly.H/2,  0.25, 8, ly.H],
-      [ly.W,  4,  ly.H/2,  0.25, 8, ly.H],
+      [W/2, 4,   0,    W,    8, 0.22],
+      [W/2, 4,   H,    W,    8, 0.22],
+      [0,   4,   H/2,  0.22, 8, H],
+      [W,   4,   H/2,  0.22, 8, H],
     ].forEach(([x,y,z,w,h,d]) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
       m.position.set(x,y,z); add3(m);
     });
 
-    // ── Corridor floor stripe ────────────────────────────────
-    const cW = ly.corrR - ly.corrL;
-    const corrFloor = new THREE.Mesh(
-      new THREE.BoxGeometry(cW, 0.03, ly.H),
-      new THREE.MeshLambertMaterial({ color: 0xfbbf24, transparent:true, opacity:0.12 })
-    );
-    corrFloor.position.set(ly.corrL + cW/2, 0.02, ly.H/2);
-    add3(corrFloor);
-
-    // Chevron arrow stripes in corridor
-    for (let z = 1; z < ly.H; z += 2.5) {
-      const arrow = new THREE.Mesh(
-        new THREE.BoxGeometry(cW*0.55, 0.03, 0.35),
-        new THREE.MeshLambertMaterial({ color: 0xfbbf24, transparent:true, opacity:0.5 })
+    // Roof trusses (decorative)
+    for (let trussZ = 0; trussZ <= Math.ceil(H); trussZ += Math.max(4, H/5)) {
+      const truss = new THREE.Mesh(
+        new THREE.BoxGeometry(W, 0.15, 0.15),
+        new THREE.MeshLambertMaterial({ color: 0x253d5e, transparent: true, opacity: 0.5 })
       );
-      arrow.position.set(ly.corrL + cW/2, 0.03, z);
-      add3(arrow);
+      truss.position.set(W/2, 8.5, trussZ);
+      add3(truss);
     }
 
-    // ── Items ─────────────────────────────────────────────────
-    const LEFT_PALETTE  = [0x3b82f6,0x1d4ed8,0x60a5fa,0x2563eb,0x0ea5e9,0x38bdf8,0x0284c7];
-    const RIGHT_PALETTE = [0x22c55e,0x16a34a,0x4ade80,0x15803d,0x10b981,0x34d399,0x059669];
-    const lSet = new Set((ly.lItems||[]).map(i=>i.id));
+    // ── Corridor floor stripe ────────────────────────────────
+    const cW = ly.corrR - ly.corrL;
+    add3(Object.assign(new THREE.Mesh(
+      new THREE.BoxGeometry(cW, 0.03, H),
+      new THREE.MeshLambertMaterial({ color: 0xfbbf24, transparent:true, opacity:0.13 })
+    ), { position: new THREE.Vector3(ly.corrL + cW/2, 0.02, H/2) }));
 
-    allItems().forEach((it, idx) => {
-      const p = pos[it.id]; if (!p) return;
-      const { dW, dH } = dd(it);
-      const stackHt = sh(it);
-      const isSel = window.selId === it.id;
-      const palette = lSet.has(it.id) ? LEFT_PALETTE : RIGHT_PALETTE;
-      const color   = isSel ? 0xfbbf24 : palette[idx % palette.length];
-
-      // Main box
-      const geo = new THREE.BoxGeometry(dW, stackHt, dH);
-      const mat = new THREE.MeshLambertMaterial({ color, transparent:true, opacity: isSel ? 1 : 0.88 });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(p.x + dW/2, stackHt/2, p.y + dH/2);
-      mesh.castShadow = true; mesh.receiveShadow = true;
-      add3(mesh);
-
-      // Wireframe edges
-      const edges = new THREE.EdgesGeometry(geo);
-      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.14 }));
-      line.position.copy(mesh.position);
-      add3(line);
-
-      // Top highlight plane
-      const top = new THREE.Mesh(
-        new THREE.PlaneGeometry(dW*0.95, dH*0.95),
-        new THREE.MeshLambertMaterial({ color: 0xffffff, transparent:true, opacity: isSel ? 0.25 : 0.1 })
+    // Corridor centre dashed line (boxes spaced apart)
+    for (let z = 0.5; z < H; z += 1.8) {
+      const dash = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.02, 0.9),
+        new THREE.MeshLambertMaterial({ color: 0xfbbf24, transparent:true, opacity:0.55 })
       );
-      top.rotation.x = -Math.PI/2; top.position.set(p.x + dW/2, stackHt + 0.002, p.y + dH/2);
-      add3(top);
+      dash.position.set(ly.corrL + cW/2, 0.03, z);
+      add3(dash);
+    }
 
-      // Side stripes (horizontal bands on front face for long items)
-      if (it.is_long && dH > 1) {
-        for (let band = 0; band < Math.min(it.stack, 3); band++) {
-          const bandH = stackHt / Math.max(it.stack, 1);
-          const stripe = new THREE.Mesh(
-            new THREE.BoxGeometry(dW, 0.04, dH * 0.98),
-            new THREE.MeshLambertMaterial({ color: 0xffffff, transparent:true, opacity:0.12 })
-          );
-          stripe.position.set(p.x + dW/2, band * bandH + 0.01, p.y + dH/2);
-          add3(stripe);
+    // ── Label signs on walls ──────────────────────────────────
+    const makeSign = (x, y, z, rx, text) => {
+      // Simple flat box as sign background
+      const sign = new THREE.Mesh(
+        new THREE.BoxGeometry(2.5, 0.7, 0.04),
+        new THREE.MeshLambertMaterial({ color: 0x1d3461, transparent:true, opacity:0.7 })
+      );
+      sign.position.set(x, y, z);
+      if (rx) sign.rotation.y = rx;
+      add3(sign);
+    };
+    if (W > 5) {
+      makeSign(W*0.25, 6.5, 0.15, 0, 'LEFT ZONE');
+      makeSign(W*0.75, 6.5, 0.15, 0, 'RIGHT ZONE');
+    }
+
+    // ── Items — individual bundle boxes ──────────────────────
+    const lSet = ly.leftItems || new Set();
+    const its  = allItems();
+
+    its.forEach((it, idx) => {
+      const p = pos[it.id];
+      if (!p) return;
+
+      const { dW, dH, cols, rows, effStack } = dd(it);
+      const isSel    = window.selId === it.id;
+      const cssColor = zColor(it, idx);
+      const hexColor = cssToHex(cssColor);
+
+      // Gap between individual bundles (makes stacking visible)
+      const gap  = 0.055;
+      const bW   = Math.max(0.06, dW / Math.max(cols, 1) - gap);
+      const bD   = Math.max(0.06, dH / Math.max(rows, 1) - gap);
+      const bH   = Math.max(0.06, it.H * 0.93); // slight gap between layers
+
+      // Shared geometry for all bundles of this item (same size)
+      const bundleGeo = new THREE.BoxGeometry(bW, bH, bD);
+      const edgeGeo   = new THREE.EdgesGeometry(bundleGeo);
+
+      for (let layer = 0; layer < Math.max(effStack, 1); layer++) {
+        // Each layer is slightly darker → shows clear stacking depth
+        const shadeFactor = Math.max(0.45, 1 - layer * 0.10);
+        const shadedCss   = shadeColor(cssColor, shadeFactor);
+        const shadedHex   = cssToHex(shadedCss);
+
+        const mat = new THREE.MeshLambertMaterial({
+          color:       isSel ? 0xfbbf24 : shadedHex,
+          transparent: true,
+          opacity:     isSel ? 1.0 : 0.93,
+        });
+        const edgeMat = new THREE.LineBasicMaterial({
+          color:       isSel ? 0xffd700 : 0xffffff,
+          transparent: true,
+          opacity:     isSel ? 0.55 : 0.22,
+        });
+
+        for (let row = 0; row < Math.max(rows, 1); row++) {
+          for (let col = 0; col < Math.max(cols, 1); col++) {
+            const bundleIdx = layer * (rows * cols) + row * cols + col;
+            if (bundleIdx >= it.bundles) continue; // skip unfilled slots
+
+            // World position: offset by half-gap so bundles are centred in their slot
+            const bx = p.x + col * (dW / cols) + gap / 2 + bW / 2;
+            const bz = p.y + row * (dH / rows) + gap / 2 + bD / 2;
+            const by = layer * it.H + bH / 2 + 0.01; // tiny floor clearance
+
+            const mesh = new THREE.Mesh(bundleGeo, mat);
+            mesh.position.set(bx, by, bz);
+            mesh.castShadow    = true;
+            mesh.receiveShadow = true;
+            add3(mesh);
+
+            // Crisp edges on every bundle
+            const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+            edges.position.set(bx, by, bz);
+            add3(edges);
+          }
         }
+      }
+
+      // ── Top highlight cap (selected items) ────────────────
+      if (isSel) {
+        const totalH = effStack * it.H;
+        const ring = new THREE.Mesh(
+          new THREE.PlaneGeometry(dW * 0.96, dH * 0.96),
+          new THREE.MeshLambertMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.35 })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(p.x + dW / 2, totalH + 0.008, p.y + dH / 2);
+        add3(ring);
+      }
+
+      // ── Small item label plate floating above stack ────────
+      if (effStack >= 1) {
+        const totalH = effStack * it.H + 0.05;
+        const plate = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.min(dW * 0.8, 1.8), 0.04, Math.min(dH, 0.6)),
+          new THREE.MeshLambertMaterial({ color: 0x000000, transparent: true, opacity: 0.35 })
+        );
+        plate.position.set(p.x + dW / 2, totalH, p.y + dH / 2);
+        add3(plate);
       }
     });
 
     // ── Reset camera to fit layout ────────────────────────────
     T.panX = 0; T.panZ = 0;
-    T.r = Math.max(ly.W, ly.H) * 1.9;
+    T.r    = Math.max(W, H) * 1.85;
     refreshCamera();
   }
 
