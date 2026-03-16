@@ -15,7 +15,7 @@ const DECK_W=2.45;    // flatbed width (m)
 const DECK_MAX_H=2.6; // max stack height on truck (m) — road legal
 
 // ══════════════════════ STATE ══════════════════════
-let sc='container', items=[], pos={}, selId=null, layout=null, view3d=false, viewFP=false, viewTL=false, viewBD=false, viewRpt=false, viewSN=false;
+var sc='container', items=[], pos={}, selId=null, layout=null, view3d=false, viewFP=false, viewTL=false, viewBD=false, viewRpt=false, viewSN=false;
 let zoom=20, camX=0, camY=0;
 let isDrag=false, dragId=null, dsMx=0, dsMy=0, dsIx=0, dsIy=0;
 let isPan=false, pMx=0, pMy=0, pCx=0, pCy=0;
@@ -492,7 +492,8 @@ const ZONE_PALETTE=[
   ['#fb923c','#f97316'], // orange-light
   ['#38bdf8','#0ea5e9'], // sky-light
 ];
-let zoneColorMap={}; // id → zone palette index
+window.ZONE_PALETTE = ZONE_PALETTE;
+var zoneColorMap={}; // id → zone palette index
 const C={
   longL:'#3b82f6',  longLd:'#1d4ed8',
   longR:'#0891b2',  longRd:'#0e7490',
