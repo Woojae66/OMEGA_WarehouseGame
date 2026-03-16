@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ["dev", "main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    name: Validate & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate HTML structure
+        run: |
+          echo "=== Running validation checks ==="
+          test -f src/index.html || (echo "FAIL: src/index.html not found" && exit 1)
+          grep -q '<!DOCTYPE html>' src/index.html || (echo "FAIL: Missing DOCTYPE" && exit 1)
+          grep -q '<canvas' src/index.html || (echo "FAIL: Missing canvas element" && exit 1)
+          echo "All validation checks passed"
+
+      - name: Check for common issues
+        run: |
+          echo "=== Checking for common issues ==="
+          # Check no console.log left in production
+          COUNT=$(grep -c 'console.log' src/index.html || true)
+          echo "console.log statements found: $COUNT"
+          # Check file encoding
+          file src/index.html
+          echo "Issue check complete"
+
+      - name: Report
+        run: |
+          echo "=== Build Report ==="
+          echo "File: src/index.html"
+          wc -l src/index.html | awk '{print "Lines:", $1}'
+          wc -c src/index.html | awk '{print "Size:", $1, "bytes"}'
+          echo "Status: PASSED"
