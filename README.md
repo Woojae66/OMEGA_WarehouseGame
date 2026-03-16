@@ -1,14 +1,14 @@
 # OMEGA Warehouse Game
 
-[![CI](https://github.com/pjirawatwanith/OMEGA_WarehouseGame/actions/workflows/ci.yml/badge.svg)](https://github.com/pjirawatwanith/OMEGA_WarehouseGame/actions/workflows/ci.yml)
-[![Deploy](https://github.com/pjirawatwanith/OMEGA_WarehouseGame/actions/workflows/deploy.yml/badge.svg)](https://github.com/pjirawatwanith/OMEGA_WarehouseGame/actions/workflows/deploy.yml)
+[![CI](https://github.com/Woojae66/OMEGA_WarehouseGame/actions/workflows/ci.yml/badge.svg)](https://github.com/Woojae66/OMEGA_WarehouseGame/actions/workflows/ci.yml)
+[![Deploy](https://github.com/Woojae66/OMEGA_WarehouseGame/actions/workflows/deploy.yml/badge.svg)](https://github.com/Woojae66/OMEGA_WarehouseGame/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > Interactive 2D/3D warehouse layout planner and storage optimization tool for the AXL x ALP Thailand Project.
 
 ## Live Demo
 
-[Play Now](https://pjirawatwanith.github.io/OMEGA_WarehouseGame/)
+[Play Now](https://Woojae66.github.io/OMEGA_WarehouseGame/)
 
 ## Features
 
@@ -23,7 +23,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/pjirawatwanith/OMEGA_WarehouseGame.git
+git clone https://github.com/Woojae66/OMEGA_WarehouseGame.git
 cd OMEGA_WarehouseGame
 
 # Open in browser
