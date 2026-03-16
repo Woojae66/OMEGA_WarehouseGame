@@ -251,33 +251,32 @@
 
     const W = wrap.clientWidth, H = wrap.clientHeight;
     T.scene = new THREE.Scene();
-    // ── Bright construction-game sky ──
-    T.scene.background = new THREE.Color(0x87ceeb);
-    T.scene.fog = new THREE.Fog(0x87ceeb, 180, 380);
+    // ── Clean architectural sky (near-white pale blue) ──
+    T.scene.background = new THREE.Color(0xeef4fb);
+    T.scene.fog = new THREE.Fog(0xeef4fb, 220, 500);
 
-    T.camera = new THREE.PerspectiveCamera(50, W/H, 0.1, 1000);
+    T.camera = new THREE.PerspectiveCamera(48, W/H, 0.1, 1000);
     T.renderer = new THREE.WebGLRenderer({ antialias: true });
     T.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     T.renderer.setSize(W, H);
-    T.renderer.shadowMap.enabled = false; // flat lighting — no shadows
+    T.renderer.shadowMap.enabled = false;
     T.mount.appendChild(T.renderer.domElement);
 
-    // ── Bright daylight rig ──
-    T.scene.add(new THREE.AmbientLight(0xffffff, 1.05));
-    const sun = new THREE.DirectionalLight(0xfffde8, 0.9);
-    sun.position.set(60, 100, 50);
-    T.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xddeeff, 0.4);
-    fill.position.set(-40, 30, -30); T.scene.add(fill);
+    // ── Crisp daylight — balanced for vivid item colours ──
+    T.scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+    const sun = new THREE.DirectionalLight(0xfff8f0, 0.75);
+    sun.position.set(60, 100, 50); T.scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xe8f0ff, 0.35);
+    fill.position.set(-50, 40, -30); T.scene.add(fill);
 
-    // ── Ground: grass outside + concrete grid ──
-    const grassMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(600, 600),
-      new THREE.MeshLambertMaterial({ color: 0x7ec850 })
+    // ── Ground: clean light-grey plane + subtle grid ──
+    const groundMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(800, 800),
+      new THREE.MeshLambertMaterial({ color: 0xddd9d2 })
     );
-    grassMesh.rotation.x = -Math.PI/2; grassMesh.position.y = -0.04;
-    T.scene.add(grassMesh);
-    T.scene.add(new THREE.GridHelper(600, 120, 0x5aab3a, 0x6abf48));
+    groundMesh.rotation.x = -Math.PI/2; groundMesh.position.y = -0.04;
+    T.scene.add(groundMesh);
+    T.scene.add(new THREE.GridHelper(800, 160, 0xc8c4bc, 0xd4d0c8));
 
     // Mouse orbit
     const el = T.renderer.domElement;
@@ -423,65 +422,47 @@
       m.position.set(W/2,.002,zi); add3(m);
     }
 
-    // ── Walls — clean white steel panels ─────────────────────
-    const wallMat = new THREE.MeshLambertMaterial({ color:0xf0ede8, transparent:true, opacity:.35, side:THREE.DoubleSide });
-    const wallEdgeMat = new THREE.MeshLambertMaterial({ color:0x708090 });
-    const wH = 9, wT = .22;
-    // Main translucent panels
-    [[W/2,wH/2,  0,    W+wT,wH,wT],
-     [W/2,wH/2,  H,    W+wT,wH,wT],
-     [0,  wH/2,  H/2,  wT,  wH, H],
-     [W,  wH/2,  H/2,  wT,  wH, H]].forEach(([x,y,z,w,h,d]) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
+    // ── NO walls, NO roof — open-plan view ───────────────────
+    // Just a clean perimeter edge trim on the slab
+    const edgeMat = new THREE.MeshLambertMaterial({ color: 0xb0aaa0 });
+    const eT = 0.08, eH = 0.28;
+    [[W/2, eH/2, 0,   W, eH, eT],
+     [W/2, eH/2, H,   W, eH, eT],
+     [0,   eH/2, H/2, eT,eH, H ],
+     [W,   eH/2, H/2, eT,eH, H ]].forEach(([x,y,z,w,h,d])=>{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), edgeMat);
       m.position.set(x,y,z); add3(m);
     });
-    // Corner columns
-    [[0,wH/2,0],[W,wH/2,0],[0,wH/2,H],[W,wH/2,H]].forEach(([x,y,z])=>{
-      const col = new THREE.Mesh(new THREE.BoxGeometry(.4,wH,.4), wallEdgeMat);
-      col.position.set(x,y,z); add3(col);
-    });
 
-    // ── Roof trusses — steel blue-grey ───────────────────────
-    const trussMat = new THREE.MeshLambertMaterial({ color:0x708090 });
-    const step = Math.max(4, H/Math.round(H/5));
-    for (let tz=0; tz<=Math.ceil(H); tz += step) {
-      const t = new THREE.Mesh(new THREE.BoxGeometry(W, .18, .18), trussMat);
-      t.position.set(W/2, wH+.09, tz); add3(t);
-    }
-    // Ridge beam
-    const ridge = new THREE.Mesh(new THREE.BoxGeometry(.22, .22, H), trussMat);
-    ridge.position.set(W/2, wH+.28, H/2); add3(ridge);
-
-    // ── Corridor — bright construction yellow stripes ─────────
+    // ── Corridor — clean white lane, blue centre dash ─────────
     const cW = ly.corrR - ly.corrL;
-    const corrMat = new THREE.MeshLambertMaterial({ color:0xfbbf24, transparent:true, opacity:.55 });
-    const corrMesh = new THREE.Mesh(new THREE.BoxGeometry(cW,.025,H),corrMat);
-    corrMesh.position.set(ly.corrL+cW/2,.015,H/2); add3(corrMesh);
+    const corrMat = new THREE.MeshLambertMaterial({ color:0xffffff, transparent:true, opacity:.72 });
+    const corrMesh = new THREE.Mesh(new THREE.BoxGeometry(cW, .022, H), corrMat);
+    corrMesh.position.set(ly.corrL+cW/2, .014, H/2); add3(corrMesh);
 
-    // Hazard stripes (alternating solid/gap black)
-    const hazMat = new THREE.MeshLambertMaterial({ color:0x1a1a1a, transparent:true, opacity:.45 });
-    for (let dz=0; dz<H; dz+=1.4) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(cW,.028,.55), hazMat);
-      stripe.position.set(ly.corrL+cW/2,.018,dz+.25); add3(stripe);
+    // Soft blue centre-line dashes
+    const dashMat = new THREE.MeshLambertMaterial({ color:0x93c5fd, transparent:true, opacity:.8 });
+    for (let dz=0.5; dz<H; dz+=1.6) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(.08,.03,.7), dashMat);
+      dash.position.set(ly.corrL+cW/2, .024, dz); add3(dash);
     }
 
-    // ── Scale ruler posts along south edge (Z=0) ─────────────
-    // Alternating red/white posts every 5m like a real measuring pole
+    // ── Scale ruler — slim red/white posts every 5 m ─────────
     for (let xi=0; xi<=Math.ceil(W); xi+=5) {
       const is10 = xi%10===0;
-      const postMat = new THREE.MeshLambertMaterial({ color: is10 ? 0xff3322 : 0xffffff });
-      const post = new THREE.Mesh(new THREE.BoxGeometry(.14,is10?1.4:1.0,.14), postMat);
-      post.position.set(xi, (is10?1.4:1.0)/2, -0.8); add3(post);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(.22,.1,.22),
-        new THREE.MeshLambertMaterial({ color:0x333333 }));
-      cap.position.set(xi, is10?1.42:1.02, -0.8); add3(cap);
+      const col  = is10 ? 0xe03030 : 0xffffff;
+      const ph   = is10 ? 1.3 : 0.9;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(.11,ph,.11),
+        new THREE.MeshLambertMaterial({ color: col }));
+      post.position.set(xi, ph/2, -0.7); add3(post);
     }
-    // Scale ruler along west edge (X=0)
     for (let zi=0; zi<=Math.ceil(H); zi+=5) {
       const is10 = zi%10===0;
-      const postMat = new THREE.MeshLambertMaterial({ color: is10 ? 0xff3322 : 0xffffff });
-      const post = new THREE.Mesh(new THREE.BoxGeometry(.14,is10?1.4:1.0,.14), postMat);
-      post.position.set(-0.8, (is10?1.4:1.0)/2, zi); add3(post);
+      const col  = is10 ? 0xe03030 : 0xffffff;
+      const ph   = is10 ? 1.3 : 0.9;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(.11,ph,.11),
+        new THREE.MeshLambertMaterial({ color: col }));
+      post.position.set(-0.7, ph/2, zi); add3(post);
     }
 
     // ── ITEMS ───────────────────────────────────────────────────
@@ -504,14 +485,12 @@
 
       // One geometry per item (shared across all bundles of same item)
       const bundleGeo = new THREE.BoxGeometry(bW, bH, bD);
-      const edgeGeo   = new THREE.EdgesGeometry(bundleGeo);
 
       for (let layer = 0; layer < effStack; layer++) {
-        // Darker on higher layers → stack depth visible
-        const shade = Math.max(0.42, 1 - layer * 0.11);
+        // Slightly lighter shade on top layers for stacking depth
+        const shade = Math.max(0.55, 1 - layer * 0.09);
         const col   = cssToHex(shadeColor(cssColor, shade));
         const mat   = new THREE.MeshLambertMaterial({ color: isSel ? 0xffd700 : col });
-        const eMat  = new THREE.LineBasicMaterial({ color: isSel ? 0xffee00 : 0x000000, transparent:true, opacity: isSel ? .8 : .18 });
 
         for (let row = 0; row < rows; row++) {
           for (let col2 = 0; col2 < cols; col2++) {
@@ -524,65 +503,44 @@
             const mesh = new THREE.Mesh(bundleGeo, mat);
             mesh.position.set(bx, by, bz);
             add3(mesh);
-
-            const wire = new THREE.LineSegments(edgeGeo, eMat);
-            wire.position.set(bx, by, bz);
-            add3(wire);
           }
         }
       }
 
-      // Selection cap glow on top
+      // Selection: clean bright outline ring on top face only
       if (isSel) {
         const totalH_ = effStack * it.H;
-        const cap = new THREE.Mesh(
-          new THREE.PlaneGeometry(dW*.95, dH*.95),
-          new THREE.MeshLambertMaterial({ color:0xfbbf24, transparent:true, opacity:.4 })
+        const ring = new THREE.Mesh(
+          new THREE.PlaneGeometry(dW*.96, dH*.96),
+          new THREE.MeshLambertMaterial({ color:0xfbbf24, transparent:true, opacity:.55 })
         );
-        cap.rotation.x = -Math.PI/2;
-        cap.position.set(p.x+dW/2, totalH_+.01, p.y+dH/2);
-        add3(cap);
+        ring.rotation.x = -Math.PI/2;
+        ring.position.set(p.x+dW/2, totalH_+.012, p.y+dH/2);
+        add3(ring);
       }
-
-      // Floating item label (thin dark plate)
-      const totalH_ = effStack * it.H + .12;
-      const plate = new THREE.Mesh(
-        new THREE.BoxGeometry(Math.min(dW*.88,2.4), .06, Math.min(dH*.7, .55)),
-        new THREE.MeshLambertMaterial({ color:0x000d1a, transparent:true, opacity:.55 })
-      );
-      plate.position.set(p.x+dW/2, totalH_, p.y+dH/2);
-      add3(plate);
     });
 
-    // ── Engineering dimension arrows ─────────────────────────
-    const dimMat = new THREE.LineBasicMaterial({ color: 0x1e40af }); // navy blue visible on concrete
+    // ── Dimension lines — dark on light floor ────────────────
+    const dimMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent:true, opacity:.6 });
     const mkLine = (pts) => {
       const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
       add3(new THREE.Line(g, dimMat));
     };
-    const DY = .8;
-    mkLine([[0,DY,-1.4],[W,DY,-1.4]]);
-    mkLine([[0,DY,-1.8],[0,DY,-.8]]);
-    mkLine([[W,DY,-1.8],[W,DY,-.8]]);
-    mkLine([[W+1.2,DY,0],[W+1.2,DY,H]]);
-    mkLine([[W+.7,DY,0],[W+1.7,DY,0]]);
-    mkLine([[W+.7,DY,H],[W+1.7,DY,H]]);
+    mkLine([[0,.5,-1.6],[W,.5,-1.6]]);
+    mkLine([[0,.5,-2.0],[0,.5,-1.0]]);
+    mkLine([[W,.5,-2.0],[W,.5,-1.0]]);
+    mkLine([[W+1.4,.5,0],[W+1.4,.5,H]]);
+    mkLine([[W+1.0,.5,0],[W+1.8,.5,0]]);
+    mkLine([[W+1.0,.5,H],[W+1.8,.5,H]]);
 
-    // ── Bold axis cross at origin ─────────────────────────────
-    const axL = Math.max(W, H) * .07;
-    const mkAxis = (color, a, b) => {
+    // ── Compact axis cross at origin (just thin lines) ────────
+    const axL = Math.max(W, H) * .055;
+    [[0xe53935,[0,.05,0],[axL,.05,0]],
+     [0x43a047,[0,.05,0],[0,axL,.05]],
+     [0x1e88e5,[0,.05,0],[0,.05,axL]]].forEach(([c,a,b])=>{
       const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a),new THREE.Vector3(...b)]);
-      add3(new THREE.Line(g, new THREE.LineBasicMaterial({ color })));
-      // Capped cylinder for visibility
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,axL,8), new THREE.MeshLambertMaterial({ color }));
-      cyl.position.set(...b.map((v,i)=>v/2)); // midpoint
-      if (color===0xff2222) cyl.rotation.z = Math.PI/2;
-      if (color===0x2244ff) cyl.rotation.x = Math.PI/2;
-      add3(cyl);
-    };
-    mkAxis(0xff2222, [0,0.1,0], [axL,0.1,0]);  // X — red
-    mkAxis(0x22cc44, [0,0.1,0], [0,axL+0.1,0]); // Y — green
-    mkAxis(0x2244ff, [0,0.1,0], [0,0.1,axL]);  // Z — blue
+      add3(new THREE.Line(g, new THREE.LineBasicMaterial({ color:c })));
+    });
 
     // Reset camera for this layout
     resetThreeCamera();
