@@ -2465,12 +2465,134 @@ function doExportPDF(){
     ty+=4;
   }
 
+  // ═══════════════════ SECTION: RENTAL RECOMMENDATION ═══════════════════
+  pdf.addPage(); secNum++;
+  secTitle(secNum,'Warehouse Rental Area Recommendation — 21-Shipment Analysis');
+  ty=22;
+
+  // Sub-header
+  pdf.setFontSize(8);pdf.setTextColor(100);
+  pdf.text('Based on OMEGA-TLS-002 Storage Statistics (Shipments 1–21)  |  Formula: Material × 1.25 corridors × 1.20 safety factor',10,ty);ty+=8;
+
+  // ── Big answer boxes ─────────────────────────────────────────────────
+  pdf.setFillColor(239,246,255);pdf.rect(10,ty,120,20,'F');
+  pdf.setDrawColor(37,99,235);pdf.setLineWidth(0.8);pdf.rect(10,ty,120,20,'D');
+  pdf.setFontSize(22);pdf.setFont('helvetica','bold');pdf.setTextColor(37,99,235);
+  pdf.text('600 m²',70,ty+11,{align:'center'});
+  pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor(37,99,235);
+  pdf.text('RECOMMENDED RENTAL  (Single ship + 25% corridors + 20% safety)',70,ty+17,{align:'center'});
+
+  pdf.setFillColor(240,253,244);pdf.rect(140,ty,120,20,'F');
+  pdf.setDrawColor(22,163,74);pdf.setLineWidth(0.8);pdf.rect(140,ty,120,20,'D');
+  pdf.setFontSize(22);pdf.setFont('helvetica','bold');pdf.setTextColor(22,163,74);
+  pdf.text('800 m²',200,ty+11,{align:'center'});
+  pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor(22,163,74);
+  pdf.text('SAFE PEAK RENTAL  (Two overlapping shipments + corridors + safety)',200,ty+17,{align:'center'});
+  ty+=28;
+
+  // ── Key averages ─────────────────────────────────────────────────────
+  pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor(30,58,95);
+  pdf.text('Key Averages — All 21 Shipments',10,ty);ty+=5;
+  const avgCols=[[10,70],[90,150],[170,230],[250,310],[330,390]];
+  const avgData=[
+    ['Shipments Analysed','21'],['Avg Floor Area','396.5 m²'],['Max Floor Area (S#3)','533.7 m²'],
+    ['Min Floor Area (S#4)','334.2 m²'],['95th Percentile','515.0 m²']
+  ];
+  const avgData2=[
+    ['Avg Containers / Ship','13.8'],['Avg Bundles / Ship','260'],['Avg Long Parts %','44.3%'],
+    ['Avg Rental / Container','34.6 m²'],['Total Containers','289']
+  ];
+  pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor(0);
+  avgData.forEach(([k,v],i)=>{
+    const [lx]=avgCols[i];
+    pdf.setFillColor(239,246,255);pdf.rect(lx,ty,74,9,'F');
+    pdf.setDrawColor(193,210,230);pdf.setLineWidth(0.3);pdf.rect(lx,ty,74,9,'D');
+    pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.setTextColor(30,58,95);
+    pdf.text(v,lx+37,ty+5,{align:'center'});
+    pdf.setFont('helvetica','normal');pdf.setFontSize(5.5);pdf.setTextColor(100);
+    pdf.text(k,lx+37,ty+8,{align:'center'});
+  });
+  ty+=12;
+  avgData2.forEach(([k,v],i)=>{
+    const [lx]=avgCols[i];
+    pdf.setFillColor(248,250,252);pdf.rect(lx,ty,74,9,'F');
+    pdf.setDrawColor(203,213,225);pdf.setLineWidth(0.3);pdf.rect(lx,ty,74,9,'D');
+    pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.setTextColor(71,85,105);
+    pdf.text(v,lx+37,ty+5,{align:'center'});
+    pdf.setFont('helvetica','normal');pdf.setFontSize(5.5);pdf.setTextColor(100);
+    pdf.text(k,lx+37,ty+8,{align:'center'});
+  });
+  ty+=14;
+
+  // ── Per-shipment table ────────────────────────────────────────────────
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor(30,58,95);
+  pdf.text('Per-Shipment Data — All 21 Shipments',10,ty);ty+=4;
+  const sColX=[10,30,56,82,118,150,182,214];
+  const sColH=['S#','Cont','Bundles','Floor m²','Long Types','Box Types','Long %','Est Rental/Cont'];
+  ty=tblHdr(sColX,sColH,ty);
+
+  const SDATA=[[1,11,200,368.44,30,33,47.6,40.19],[2,13,238,377.35,39,39,50.0,34.83],
+    [3,14,279,533.74,56,58,49.1,45.75],[4,14,303,334.20,22,82,21.2,28.65],
+    [5,14,226,391.92,32,30,51.6,33.59],[6,14,277,382.27,43,43,50.0,32.77],
+    [7,14,257,434.98,37,52,41.6,37.28],[8,14,292,346.94,21,59,26.2,29.74],
+    [9,13,221,402.68,34,25,57.6,37.17],[10,14,253,354.17,27,41,39.7,30.36],
+    [11,14,266,388.74,28,53,34.6,33.32],[12,14,311,368.00,26,59,30.6,31.54],
+    [13,14,256,357.02,30,39,43.5,30.60],[14,14,259,514.95,55,34,61.8,44.14],
+    [15,14,291,392.22,27,51,34.6,33.62],[16,14,305,374.18,40,69,36.7,32.07],
+    [17,14,230,387.41,37,31,54.4,33.21],[18,14,266,396.07,30,54,35.7,33.95],
+    [19,14,265,443.06,49,47,51.0,37.98],[20,14,246,374.76,34,43,44.2,32.12],
+    [21,14,213,402.91,39,18,68.4,34.54]];
+
+  SDATA.forEach(([s,c,b,f,lt,bt,lp,er],i)=>{
+    if(ty>pageH-30){pdf.addPage();ty=12;}
+    const hi=f>430;
+    if(hi){pdf.setFillColor(254,243,199);}else if(i%2===0){pdf.setFillColor(248,250,252);}else{pdf.setFillColor(255,255,255);}
+    pdf.rect(8,ty-3,pageW-16,5,'F');
+    pdf.setFontSize(7);pdf.setFont('helvetica',hi?'bold':'normal');
+    pdf.setTextColor(hi?180:0,hi?84:0,hi?9:0);
+    const row=[s,c,b,f.toFixed(1),lt,bt,lp.toFixed(1)+'%',er.toFixed(1)];
+    row.forEach((v,ci)=>pdf.text(String(v),sColX[ci],ty));
+    ty+=5;
+  });
+  // Average row
+  pdf.setFillColor(224,231,255);pdf.rect(8,ty-3,pageW-16,5,'F');
+  pdf.setFont('helvetica','bold');pdf.setTextColor(67,56,202);
+  ['AVG','13.8','259.7','396.5','35.0','45.7','44.3%','34.6'].forEach((v,ci)=>pdf.text(v,sColX[ci],ty));
+  ty+=8;
+
+  // ── Decision guide ────────────────────────────────────────────────────
+  if(ty>pageH-50){pdf.addPage();ty=12;}
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor(30,58,95);
+  pdf.text('Rental Decision Guide',10,ty);ty+=5;
+
+  const decisions=[
+    {opt:'A — Minimum', area:'480 m²', fill:[241,245,249], tc:[71,85,105], desc:'Strict sequential delivery — each shipment fully cleared before next arrives.'},
+    {opt:'B — Recommended ★', area:'600 m²', fill:[240,253,244], tc:[22,163,74], desc:'Normal operation — one shipment at a time. Covers 90% of all deliveries.'},
+    {opt:'C — Safe Peak ★', area:'800 m²', fill:[239,246,255], tc:[37,99,235], desc:'Two shipments overlap on-site. Recommended if schedule compression likely.'},
+    {opt:'D — Absolute Max', area:'1,260 m²', fill:[254,242,242], tc:[220,38,38], desc:'Both largest shipments (#3 + #14) on-site simultaneously. Extreme contingency.'},
+  ];
+  decisions.forEach(d=>{
+    if(ty>pageH-14){pdf.addPage();ty=12;}
+    pdf.setFillColor(...d.fill);pdf.rect(8,ty-3,pageW-16,8,'F');
+    pdf.setDrawColor(...d.tc);pdf.setLineWidth(0.3);pdf.rect(8,ty-3,pageW-16,8,'D');
+    pdf.setFontSize(7);pdf.setFont('helvetica','bold');pdf.setTextColor(...d.tc);
+    pdf.text(d.opt,11,ty);
+    pdf.setFont('helvetica','normal');pdf.setTextColor(71,85,105);
+    pdf.text(d.desc,75,ty);
+    pdf.setFont('helvetica','bold');pdf.setTextColor(...d.tc);
+    pdf.text(d.area,pageW-15,ty,{align:'right'});
+    ty+=8;
+  });
+  ty+=4;
+  pdf.setFontSize(7);pdf.setFont('helvetica','italic');pdf.setTextColor(100);
+  pdf.text('Formula: Rental Area = Material Floor Area × 1.25 (corridors) × 1.20 (safety factor)',10,ty);
+
   // ═══════════════════ FOOTER ON ALL PAGES ═══════════════════
   const nPages=pdf.internal.getNumberOfPages();
   for(let i=1;i<=nPages;i++){
     pdf.setPage(i);
     pdf.setFontSize(7);pdf.setTextColor(150);
-    pdf.text('OMEGA Warehouse Planner v6 — Full Report — AXL × ALP Thailand — '+dateStr,10,pageH-5);
+    pdf.text('OMEGA Warehouse Planner — Full Report — AXL × ALP Thailand — '+dateStr,10,pageH-5);
     pdf.text('Page '+i+'/'+nPages,pageW-30,pageH-5);
   }
   pdf.save('OMEGA_Full_Report.pdf');
