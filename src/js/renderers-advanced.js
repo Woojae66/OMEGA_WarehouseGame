@@ -760,12 +760,22 @@
     const totalBundles = its.reduce((s,it)=>s+(it.bundles||0),0);
     const totalSqm     = its.reduce((s,it)=>s+(it.sqm||0),0);
     const totalSNs     = its.reduce((s,it)=>s+(it._allSns?it._allSns.length:0),0);
+    // Total pcs across all items
+    let grandTotalPcs = 0;
+    its.forEach(it => {
+      const snc2 = it.sn_contents || {};
+      const keys2 = Object.keys(snc2);
+      if (keys2.length) {
+        let sq = 0; keys2.forEach(k=>{ (snc2[k]||[]).forEach(e=>{ sq+=(e.qty||0); }); });
+        grandTotalPcs += Math.round(sq / keys2.length) * (it.bundles||0);
+      }
+    });
     const hdr = document.createElement('div');
-    hdr.style.cssText = 'background:#1e3a5f;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;';
+    hdr.style.cssText = 'background:#1A1A1A;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;border-bottom:3px solid #CC0000;';
     hdr.innerHTML = `
       <div style="font-size:15px;font-weight:700;flex:1;min-width:200px;">📦 Bundle &amp; S/N Register</div>
-      ${[ ['Items',its.length,''], ['Bundles',totalBundles,'units'], ['Floor Area',totalSqm.toFixed(1),'m²'], ['Serial Nos.',totalSNs,'SNs'] ]
-        .map(([l,v,u])=>`<div style="text-align:center;"><div style="font-size:22px;font-weight:700;line-height:1">${v}</div><div style="font-size:10px;color:#93c5fd;">${l}${u?' ('+u+')':''}</div></div>`).join('')}
+      ${[ ['Items',its.length,''], ['Bundles',totalBundles,'bndl'], ['Total Pcs',grandTotalPcs.toLocaleString(),'pcs'], ['Floor Area',totalSqm.toFixed(1),'m²'], ['Serial Nos.',totalSNs,'SNs'] ]
+        .map(([l,v,u])=>`<div style="text-align:center;"><div style="font-size:20px;font-weight:700;line-height:1">${v}</div><div style="font-size:10px;color:#ff9999;">${l}${u?' ('+u+')':''}</div></div>`).join('')}
     `;
     BD.mount.appendChild(hdr);
 
@@ -846,28 +856,50 @@
       `;
       card.appendChild(cHdr);
 
+      // ── Derived values ──────────────────────────────────────
+      const floorPos    = it.floor_pos || 1;
+      const actualStack = Math.ceil(it.bundles / floorPos);   // real stacks in use
+      const maxStack    = it.stack || 1;                       // rated max capacity
+
+      // pcs per bundle — read from sn_contents
+      let pcsPerBndl = 0, totalPcs = 0;
+      const snc = it.sn_contents || {};
+      const sncKeys = Object.keys(snc);
+      if (sncKeys.length) {
+        let sumQty = 0;
+        sncKeys.forEach(k => { (snc[k]||[]).forEach(e => { sumQty += (e.qty||0); }); });
+        pcsPerBndl = Math.round(sumQty / sncKeys.length);
+        totalPcs   = pcsPerBndl * it.bundles;
+      }
+
       // Specs row
       const specs = document.createElement('div');
-      specs.style.cssText = 'padding:8px 12px;display:flex;gap:16px;border-bottom:1px solid #f1f5f9;';
+      specs.style.cssText = 'padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px 16px;border-bottom:1px solid #f1f5f9;';
       specs.innerHTML = [
         `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Dims</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">${it.L}×${it.W}×${it.H} m</div></div>`,
-        `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Stack</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">×${it.stack}</div></div>`,
+        `<div title="Actual stacks used / max rated capacity"><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Stack</div><div style="font-size:10.5px;font-weight:700;color:#1e293b;">×${actualStack}<span style="font-size:9px;color:#cbd5e1;font-weight:400;"> /max ${maxStack}</span></div></div>`,
+        `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Floor Pos</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">${floorPos}</div></div>`,
+        pcsPerBndl ? `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Pcs / Bndl</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">${pcsPerBndl.toLocaleString()}</div></div>` : '',
+        pcsPerBndl ? `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Total Pcs</div><div style="font-size:11px;font-weight:700;color:${color};">${totalPcs.toLocaleString()}</div></div>` : '',
         `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Area</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">${it.sqm.toFixed(1)} m²</div></div>`,
         it._containers && it._containers.length ?
-          `<div><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Container</div><div style="font-size:10.5px;font-weight:600;color:#1e293b;">${it._containers.join(', ')}</div></div>` : ''
+          `<div style="flex-basis:100%"><div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Container</div><div style="font-size:10px;font-weight:600;color:#1e293b;">${it._containers.join(', ')}</div></div>` : ''
       ].join('');
       card.appendChild(specs);
 
-      // Bundle dots
+      // Bundle dots — grid: columns = floor_pos, rows = actual stack layers
       const dotArea = document.createElement('div');
       dotArea.style.cssText = 'padding:8px 12px;border-bottom:1px solid #f1f5f9;';
-      const maxDots = Math.min(it.bundles, 40);
-      let dotsHtml = '<div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Bundles</div>';
-      dotsHtml += '<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+      const maxDots = Math.min(it.bundles, 60);
+      const gridCols = Math.min(floorPos, 20);
+      let dotsHtml = `<div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Bundles <span style="color:#64748b;font-weight:600;font-size:9px;text-transform:none;">${it.bundles} bndl · ${floorPos} col · ×${actualStack} high</span></div>`;
+      dotsHtml += `<div style="display:grid;grid-template-columns:repeat(${gridCols},14px);gap:3px;">`;
       for (let b = 0; b < maxDots; b++) {
-        dotsHtml += `<div style="width:12px;height:12px;border-radius:2px;background:${color};opacity:${0.5 + (b/(maxDots*1.5))};"></div>`;
+        const row = Math.floor(b / floorPos);
+        const layerShade = (1 - (row / Math.max(actualStack, 1)) * 0.45).toFixed(2);
+        dotsHtml += `<div title="Col ${(b%floorPos)+1} · Layer ${row+1}" style="width:14px;height:14px;border-radius:2px;background:${color};opacity:${layerShade};"></div>`;
       }
-      if (it.bundles > 40) dotsHtml += `<div style="font-size:9px;color:#64748b;align-self:center;margin-left:2px;">+${it.bundles-40}</div>`;
+      if (it.bundles > 60) dotsHtml += `<div style="font-size:9px;color:#64748b;align-self:center;padding:0 4px;grid-column:span 2;">+${it.bundles-60}</div>`;
       dotsHtml += '</div>';
       dotArea.innerHTML = dotsHtml;
       card.appendChild(dotArea);
