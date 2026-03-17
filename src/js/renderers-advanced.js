@@ -252,8 +252,8 @@
     const W = wrap.clientWidth, H = wrap.clientHeight;
     T.scene = new THREE.Scene();
     // ── Construction drawing: blueprint-white drafting paper ──
-    T.scene.background = new THREE.Color(0xe8eef6);
-    T.scene.fog = new THREE.Fog(0xe8eef6, 260, 550);
+    T.scene.background = new THREE.Color(0xede9e0);
+    T.scene.fog = new THREE.Fog(0xede9e0, 280, 560);
 
     T.camera = new THREE.PerspectiveCamera(46, W/H, 0.1, 1000);
     T.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -272,14 +272,14 @@
     // ── Ground: crisp white with bold 1m graph-paper grid ──
     const groundMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(600, 600),
-      new THREE.MeshLambertMaterial({ color: 0xfafcff })  // drafting paper white
+      new THREE.MeshLambertMaterial({ color: 0xede9e0 })  // warm drafting paper
     );
     groundMesh.rotation.x = -Math.PI/2; groundMesh.position.y = -0.04;
     T.scene.add(groundMesh);
-    // 5m major grid — dark navy blue, clearly visible
-    T.scene.add(new THREE.GridHelper(600, 120, 0x5577aa, 0x5577aa));
-    // 1m minor grid — medium blue
-    T.scene.add(new THREE.GridHelper(600, 600, 0xaabbd0, 0xaabbd0));
+    // 5m major grid — warm sepia
+    T.scene.add(new THREE.GridHelper(600, 120, 0xb0a090, 0xb0a090));
+    // 1m minor grid — light tan
+    T.scene.add(new THREE.GridHelper(600, 600, 0xd4c8b8, 0xd4c8b8));
 
     // Mouse orbit
     const el = T.renderer.domElement;
@@ -418,14 +418,14 @@
     // ── Warehouse floor slab: white drafting paper ────────────
     const slab = new THREE.Mesh(
       new THREE.BoxGeometry(W, 0.10, H),
-      new THREE.MeshLambertMaterial({ color: 0xffffff })
+      new THREE.MeshLambertMaterial({ color: 0xfaf7f0 })
     );
     slab.position.set(W/2, -0.05, H/2);
     add3(slab);
 
     // Bold 1m grid lines on slab — dark navy major (5m), medium blue minor (1m)
-    const majorLineMat = new THREE.MeshLambertMaterial({ color: 0x3a5f88 });
-    const minorLineMat = new THREE.MeshLambertMaterial({ color: 0x90aac8, transparent:true, opacity:.75 });
+    const majorLineMat = new THREE.MeshLambertMaterial({ color: 0x4a4030 });
+    const minorLineMat = new THREE.MeshLambertMaterial({ color: 0xb0a090, transparent:true, opacity:.7 });
     for (let xi=0; xi<=Math.ceil(W); xi++) {
       const isMaj = xi%5===0;
       const m = new THREE.Mesh(new THREE.BoxGeometry(isMaj?.07:.028,.012,H), isMaj?majorLineMat:minorLineMat);
@@ -451,33 +451,28 @@
 
     // ── Corridor — clean white lane, blue centre dash ─────────
     const cW = ly.corrR - ly.corrL;
-    const corrMat = new THREE.MeshLambertMaterial({ color:0xffffff, transparent:true, opacity:.72 });
+    const corrMat = new THREE.MeshLambertMaterial({ color:0xe8e4d8, transparent:true, opacity:.72 });
     const corrMesh = new THREE.Mesh(new THREE.BoxGeometry(cW, .022, H), corrMat);
     corrMesh.position.set(ly.corrL+cW/2, .014, H/2); add3(corrMesh);
 
     // Soft blue centre-line dashes
-    const dashMat = new THREE.MeshLambertMaterial({ color:0x93c5fd, transparent:true, opacity:.8 });
+    const dashMat = new THREE.MeshLambertMaterial({ color:0x7a6a50, transparent:true, opacity:.55 });
     for (let dz=0.5; dz<H; dz+=1.6) {
       const dash = new THREE.Mesh(new THREE.BoxGeometry(.08,.03,.7), dashMat);
       dash.position.set(ly.corrL+cW/2, .024, dz); add3(dash);
     }
 
-    // ── Scale ruler — slim red/white posts every 5 m ─────────
+    // ── Scale tick marks — thin dark bars every 5 m ──────────
+    const tickMat = new THREE.MeshLambertMaterial({ color: 0x2a1a0a });
     for (let xi=0; xi<=Math.ceil(W); xi+=5) {
-      const is10 = xi%10===0;
-      const col  = is10 ? 0xe03030 : 0xffffff;
-      const ph   = is10 ? 1.3 : 0.9;
-      const post = new THREE.Mesh(new THREE.BoxGeometry(.11,ph,.11),
-        new THREE.MeshLambertMaterial({ color: col }));
-      post.position.set(xi, ph/2, -0.7); add3(post);
+      const ph = xi%10===0 ? 0.55 : 0.32;
+      const tk = new THREE.Mesh(new THREE.BoxGeometry(.06, ph, .06), tickMat);
+      tk.position.set(xi, ph/2, -0.5); add3(tk);
     }
     for (let zi=0; zi<=Math.ceil(H); zi+=5) {
-      const is10 = zi%10===0;
-      const col  = is10 ? 0xe03030 : 0xffffff;
-      const ph   = is10 ? 1.3 : 0.9;
-      const post = new THREE.Mesh(new THREE.BoxGeometry(.11,ph,.11),
-        new THREE.MeshLambertMaterial({ color: col }));
-      post.position.set(-0.7, ph/2, zi); add3(post);
+      const ph = zi%10===0 ? 0.55 : 0.32;
+      const tk = new THREE.Mesh(new THREE.BoxGeometry(.06, ph, .06), tickMat);
+      tk.position.set(-0.5, ph/2, zi); add3(tk);
     }
 
     // ── ITEMS ───────────────────────────────────────────────────
@@ -503,10 +498,16 @@
 
       for (let layer = 0; layer < effStack; layer++) {
         // Slightly lighter shade on top layers for stacking depth
+        // Arch drawing style: pastel fill (blend toward white) + bold black outline
         const shade = Math.max(0.55, 1 - layer * 0.09);
-        const col   = cssToHex(shadeColor(cssColor, shade));
-        const mat   = new THREE.MeshLambertMaterial({ color: isSel ? 0xffd700 : col });
-        const outlineMat = new THREE.LineBasicMaterial({ color: isSel ? 0xffd700 : 0x1e3a5f, transparent:true, opacity: isSel ? 0.9 : 0.45 });
+        const rawHex = cssToHex(shadeColor(cssColor, shade));
+        // Blend toward white 55% for pastel feel
+        const rp = Math.round(((rawHex>>16)&0xff)*0.45 + 255*0.55);
+        const gp = Math.round(((rawHex>>8)&0xff)*0.45 + 255*0.55);
+        const bp = Math.round((rawHex&0xff)*0.45 + 255*0.55);
+        const pastel = (rp<<16)|(gp<<8)|bp;
+        const mat   = new THREE.MeshLambertMaterial({ color: isSel ? 0xffd700 : pastel });
+        const outlineMat = new THREE.LineBasicMaterial({ color: isSel ? 0xb45309 : 0x111111, transparent:true, opacity: isSel ? 1.0 : 0.88 });
 
         for (let row = 0; row < rows; row++) {
           for (let col2 = 0; col2 < cols; col2++) {
@@ -540,18 +541,78 @@
       }
     });
 
-    // ── Dimension lines — dark on light floor ────────────────
-    const dimMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent:true, opacity:.6 });
+    // ── Dimension lines + text labels ─────────────────────────
+    const dimLineMat = new THREE.LineBasicMaterial({ color: 0x2a1a0a, transparent:true, opacity:.75 });
     const mkLine = (pts) => {
       const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
-      add3(new THREE.Line(g, dimMat));
+      add3(new THREE.Line(g, dimLineMat));
     };
-    mkLine([[0,.5,-1.6],[W,.5,-1.6]]);
-    mkLine([[0,.5,-2.0],[0,.5,-1.0]]);
-    mkLine([[W,.5,-2.0],[W,.5,-1.0]]);
-    mkLine([[W+1.4,.5,0],[W+1.4,.5,H]]);
-    mkLine([[W+1.0,.5,0],[W+1.8,.5,0]]);
-    mkLine([[W+1.0,.5,H],[W+1.8,.5,H]]);
+    // Width dim line (front)
+    const dimY = 0.5;
+    mkLine([[0,dimY,-1.8],[W,dimY,-1.8]]);
+    mkLine([[0,dimY,-2.2],[0,dimY,-1.2]]);    // tick left
+    mkLine([[W,dimY,-2.2],[W,dimY,-1.2]]);    // tick right
+    // Depth dim line (right side)
+    mkLine([[W+1.6,dimY,0],[W+1.6,dimY,H]]);
+    mkLine([[W+1.2,dimY,0],[W+2.0,dimY,0]]);  // tick top
+    mkLine([[W+1.2,dimY,H],[W+2.0,dimY,H]]);  // tick bottom
+
+    // Canvas text sprite helper
+    const dimSprite = (text, x, y, z, sw) => {
+      const c = document.createElement('canvas');
+      c.width = 192; c.height = 40;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, 192, 40);
+      ctx.fillStyle = 'rgba(253,250,244,0.92)';
+      ctx.fillRect(2, 2, 188, 36);
+      ctx.strokeStyle = '#2a1a0a';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(2, 2, 188, 36);
+      ctx.fillStyle = '#0f0a00';
+      ctx.font = 'bold 18px Arial,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 96, 20);
+      const tex = new THREE.CanvasTexture(c);
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+      spr.scale.set(sw || 4, 1.0, 1);
+      spr.position.set(x, y, z);
+      add3(spr);
+    };
+
+    dimSprite(`${W.toFixed(1)} m`, W/2, dimY+0.9, -1.8, 4.2);
+    dimSprite(`${H.toFixed(1)} m`, W+1.6, dimY+0.9, H/2, 4.2);
+
+    // Per-item dimension label on floor (name + footprint)
+    its.forEach((it) => {
+      const p = pos[it.id];
+      if (!p) return;
+      const { dW, dH } = dd(it);
+      const cx = p.x + dW/2, cz = p.y + dH/2;
+      const c = document.createElement('canvas');
+      c.width = 200; c.height = 44;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, 200, 44);
+      ctx.fillStyle = 'rgba(253,250,244,0.85)';
+      ctx.fillRect(0, 0, 200, 44);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(1, 1, 198, 42);
+      ctx.fillStyle = '#0f0a00';
+      ctx.font = 'bold 13px Arial,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const name = it.item && it.item.length > 16 ? it.item.slice(0,14)+'…' : (it.item||it.id);
+      ctx.fillText(name, 100, 14);
+      ctx.font = '11px Arial,sans-serif';
+      ctx.fillStyle = '#555';
+      ctx.fillText(`${dW.toFixed(1)}×${dH.toFixed(1)} m`, 100, 31);
+      const tex = new THREE.CanvasTexture(c);
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+      spr.scale.set(Math.max(2.5, dW * 0.9), 0.65, 1);
+      spr.position.set(cx, 0.25, cz);
+      add3(spr);
+    });
 
     // ── Compact axis cross at origin (just thin lines) ────────
     const axL = Math.max(W, H) * .055;
