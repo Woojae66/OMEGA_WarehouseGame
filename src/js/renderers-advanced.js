@@ -451,12 +451,12 @@
 
     // ── Corridor — clean white lane, blue centre dash ─────────
     const cW = ly.corrR - ly.corrL;
-    const corrMat = new THREE.MeshLambertMaterial({ color:0xfaf5e0, transparent:true, opacity:.78 });  // 2D corridor yellow-cream
+    const corrMat = new THREE.MeshLambertMaterial({ color:0x7a8490, transparent:true, opacity:.82 });  // road asphalt gray
     const corrMesh = new THREE.Mesh(new THREE.BoxGeometry(cW, .022, H), corrMat);
     corrMesh.position.set(ly.corrL+cW/2, .014, H/2); add3(corrMesh);
 
     // Soft blue centre-line dashes
-    const dashMat = new THREE.MeshLambertMaterial({ color:0xe07c20, transparent:true, opacity:.6 });  // 2D forklift path orange
+    const dashMat = new THREE.MeshLambertMaterial({ color:0xffffff, transparent:true, opacity:.7 });  // white road centre line
     for (let dz=0.5; dz<H; dz+=1.6) {
       const dash = new THREE.Mesh(new THREE.BoxGeometry(.08,.03,.7), dashMat);
       dash.position.set(ly.corrL+cW/2, .024, dz); add3(dash);
@@ -579,34 +579,46 @@
     dimSprite(`${W.toFixed(1)} m`, W/2, dimY+0.9, -1.8, 4.2);
     dimSprite(`${H.toFixed(1)} m`, W+1.6, dimY+0.9, H/2, 4.2);
 
-    // Per-item dimension label on floor (name + footprint)
+    // Per-item label — floats ABOVE the stack, always readable
     its.forEach((it) => {
       const p = pos[it.id];
       if (!p) return;
-      const { dW, dH } = dd(it);
+      const { dW, dH, effStack: rawEff } = dd(it);
+      const effStack = Math.max(rawEff || 1, 1);
+      const stackH   = effStack * (it.H || 0.4);  // total height of stack
       const cx = p.x + dW/2, cz = p.y + dH/2;
+      const labelY = stackH + 0.55;  // above the top of the stack
+
       const c = document.createElement('canvas');
-      c.width = 200; c.height = 44;
+      c.width = 220; c.height = 52;
       const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, 200, 44);
-      ctx.fillStyle = 'rgba(253,250,244,0.85)';
-      ctx.fillRect(0, 0, 200, 44);
-      ctx.strokeStyle = '#444';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(1, 1, 198, 42);
-      ctx.fillStyle = '#0f0a00';
-      ctx.font = 'bold 13px Arial,sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const name = it.item && it.item.length > 16 ? it.item.slice(0,14)+'…' : (it.item||it.id);
-      ctx.fillText(name, 100, 14);
+      ctx.clearRect(0, 0, 220, 52);
+      // Zone color strip on left
+      const zCol = zColor(it, 0);
+      ctx.fillStyle = zCol;
+      ctx.fillRect(0, 0, 8, 52);
+      // White card background
+      ctx.fillStyle = 'rgba(238,240,246,0.96)';
+      ctx.fillRect(8, 0, 212, 52);
+      // Navy border
+      ctx.strokeStyle = '#1e3050';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(1, 1, 218, 50);
+      // Item name
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 14px Arial,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const name = it.item && it.item.length > 15 ? it.item.slice(0,13)+'…' : (it.item||it.id);
+      ctx.fillText(name, 14, 6);
+      // Dims + bundles
       ctx.font = '11px Arial,sans-serif';
-      ctx.fillStyle = '#555';
-      ctx.fillText(`${dW.toFixed(1)}×${dH.toFixed(1)} m`, 100, 31);
+      ctx.fillStyle = '#3a5080';
+      ctx.fillText(`${dW.toFixed(1)}×${dH.toFixed(1)} m  ×${it.bundles||1}`, 14, 28);
       const tex = new THREE.CanvasTexture(c);
       const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-      spr.scale.set(Math.max(2.5, dW * 0.9), 0.65, 1);
-      spr.position.set(cx, 0.25, cz);
+      spr.scale.set(Math.max(3.2, dW * 1.1), 0.82, 1);
+      spr.position.set(cx, labelY, cz);
       add3(spr);
     });
 
@@ -1331,10 +1343,26 @@
           scales: {
             x: { min:0, max:100, ticks:{font:{size:9},color:'#64748b',callback:v=>v+'%'}, grid:{color:'#f1f5f9'} },
             y: { ticks:{font:{size:9},color:'#64748b'}, grid:{display:false} }
+          },
+          onClick: (_e, els) => {
+            if (!els.length) return;
+            const ti = els[0].index;
+            // Re-render with new selection (lightweight — just call renderTL again)
+            TL.selectedTrip = (TL.selectedTrip === ti) ? -1 : ti;
+            renderTL();
+            // Scroll to card
+            setTimeout(() => {
+              const cards = TL.mount.querySelectorAll('[data-ti]');
+              if (cards[ti]) cards[ti].scrollIntoView({ behavior:'smooth', block:'center' });
+            }, 60);
           }
         }
       });
     }
+
+    // ── Selection state ────────────────────────────────────
+    if (TL.selectedTrip === undefined || TL.selectedTrip >= trips.length) TL.selectedTrip = -1;
+    const allCards = [];
 
     // ── Trip cards grid ────────────────────────────────────
     const grid = document.createElement('div');
@@ -1349,7 +1377,12 @@
       const uBg      = util>=80?'#f0fdf4':util>=60?'#fffbeb':'#fef2f2';
 
       const card = document.createElement('div');
-      card.style.cssText = 'background:#fff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);';
+      const isSel = TL.selectedTrip === ti;
+      card.style.cssText = `background:#fff;border-radius:10px;border:${isSel?'2px solid #3b82f6':'1px solid #e2e8f0'};overflow:hidden;box-shadow:${isSel?'0 0 0 3px #3b82f633,0 4px 16px rgba(59,130,246,.2)':'0 1px 4px rgba(0,0,0,.07)'};transform:${isSel?'translateY(-2px)':'none'};transition:all .15s ease;cursor:pointer;`;
+      card.title = `Click to ${isSel?'deselect':'select'} Trip ${ti+1}`;
+      card.setAttribute('data-ti', ti);
+      card.addEventListener('click', () => { TL.selectedTrip = isSel ? -1 : ti; renderTL(); });
+      allCards.push(card);
 
       // Card header
       const cHdr = document.createElement('div');
@@ -1439,6 +1472,30 @@
         tagArea.appendChild(tag);
       });
       card.appendChild(tagArea);
+
+      // Expanded detail row — shown only when selected
+      if (TL.selectedTrip === ti) {
+        const detail = document.createElement('div');
+        detail.style.cssText = 'border-top:1px solid #e0e8f8;background:#f0f6ff;padding:10px 14px;font-size:10px;color:#1e3a5f;';
+        const rows = trip.loads.map((ld,li) => {
+          const c = TL.itemColorMap&&TL.itemColorMap[ld.item]?TL.itemColorMap[ld.item]:CHART_COLORS[li%CHART_COLORS.length];
+          return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid #dde8f5;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};flex-shrink:0;"></span>
+            <span style="font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ld.item}</span>
+            <span style="color:#475569;">${ld.w.toFixed(1)}×${ld.h.toFixed(1)} m</span>
+            <span style="color:#64748b;">${ld.bdlCount||1} bdl</span>
+            <span style="color:#3b82f6;font-weight:600;">${Math.round(ld.w*ld.h/(DECK_L*DECK_W)*100)}%</span>
+          </div>`;
+        }).join('');
+        detail.innerHTML = `<div style="font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Item breakdown</div>${rows}
+          <div style="margin-top:8px;display:flex;gap:16px;font-size:9px;color:#64748b;">
+            <span>🟩 Used: ${usedArea.toFixed(1)} m²</span>
+            <span>⬜ Free: ${(DECK_L*DECK_W-usedArea).toFixed(1)} m²</span>
+            <span>📦 Vol: ${usedVol.toFixed(1)} m³</span>
+          </div>`;
+        card.appendChild(detail);
+      }
+
       grid.appendChild(card);
     });
 
